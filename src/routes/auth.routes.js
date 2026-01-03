@@ -12,4 +12,9 @@ router.post('/verify-email', authController.verifyEmail);
 router.post('/reset-password', authenticateToken, authController.resetPassword);
 router.post('/refresh', authLimiter, authController.refresh);
 
+// Rutas para recuperación de contraseña
+router.post('/request-password-reset', authLimiter, authController.requestPasswordReset);
+router.post('/verify-reset-code', authLimiter, authController.verifyResetCode);
+router.post('/confirm-password-reset', authLimiter, authController.confirmPasswordReset);
+
 module.exports = router;

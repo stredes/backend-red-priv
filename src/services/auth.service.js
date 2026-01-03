@@ -5,6 +5,7 @@ const { normalizeEmail } = require('../utils/normalize');
 const { signAccessToken, signRefreshToken, verifyRefreshToken, hashToken } = require('../utils/tokens');
 const usersRepo = require('../repositories/users.repository');
 const refreshRepo = require('../repositories/refreshTokens.repository');
+const resetCodesRepo = require('../repositories/resetCodes.repository');
 
 async function issueTokens(user) {
   const accessToken = signAccessToken(user);
@@ -155,6 +156,102 @@ async function refreshToken(token) {
   return tokens;
 }
 
+/**
+ * Genera un código de 6 dígitos aleatorio
+ */
+function generateResetCode() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+/**
+ * Solicita un código de recuperación de contraseña
+ */
+async function requestPasswordReset(email) {
+  const normalizedEmail = normalizeEmail(email);
+  const user = await usersRepo.getUserByEmail(normalizedEmail);
+  
+  if (!user) {
+    // Por seguridad, no revelamos si el email existe o no
+    return { success: true, message: 'Si el correo existe, recibirás un código de recuperación' };
+  }
+  
+  // Generar código de 6 dígitos
+  const code = generateResetCode();
+  const expiresAt = Date.now() + (15 * 60 * 1000); // 15 minutos
+  
+  // Guardar código en la base de datos
+  await resetCodesRepo.saveResetCode({
+    email: normalizedEmail,
+    code,
+    expiresAt
+  });
+  
+  // TODO: Aquí se debería enviar el código por email
+  // Por ahora, lo retornamos en la respuesta (solo para desarrollo)
+  console.log(`Código de recuperación para ${normalizedEmail}: ${code}`);
+  
+  return {
+    success: true,
+    message: 'Código enviado a tu correo electrónico',
+    // En producción, NO incluir el código en la respuesta
+    resetToken: code // Solo para desarrollo
+  };
+}
+
+/**
+ * Verifica un código de recuperación
+ */
+async function verifyResetCode(email, code) {
+  const normalizedEmail = normalizeEmail(email);
+  const resetData = await resetCodesRepo.getResetCode(normalizedEmail);
+  
+  if (!resetData) {
+    throw new Error('Código de verificación no encontrado');
+  }
+  
+  if (resetData.used) {
+    throw new Error('Este código ya fue utilizado');
+  }
+  
+  if (Date.now() > resetData.expiresAt) {
+    await resetCodesRepo.deleteResetCode(normalizedEmail);
+    throw new Error('El código ha expirado');
+  }
+  
+  if (resetData.code !== code) {
+    throw new Error('Código de verificación inválido');
+  }
+  
+  return { success: true, message: 'Código verificado correctamente' };
+}
+
+/**
+ * Confirma el restablecimiento de contraseña con código verificado
+ */
+async function confirmPasswordReset(email, code, newPassword) {
+  const normalizedEmail = normalizeEmail(email);
+  
+  // Verificar el código nuevamente
+  await verifyResetCode(normalizedEmail, code);
+  
+  // Actualizar la contraseña
+  const user = await usersRepo.getUserByEmail(normalizedEmail);
+  if (!user) {
+    throw new Error('Usuario no encontrado');
+  }
+  
+  const hash = await bcrypt.hash(newPassword, 10);
+  await usersRepo.updateUser(normalizedEmail, { passwordHash: hash });
+  
+  // Marcar el código como usado
+  await resetCodesRepo.markCodeAsUsed(normalizedEmail);
+  
+  // Revocar todos los tokens de refresh del usuario
+  await refreshRepo.revokeAllForUser(normalizedEmail);
+  
+  return { success: true, message: 'Contraseña actualizada correctamente' };
+}
+
 module.exports = {
   ensureRootUser,
   register,
@@ -162,5 +259,8 @@ module.exports = {
   me,
   verifyEmail,
   resetPassword,
-  refreshToken
+  refreshToken,
+  requestPasswordReset,
+  verifyResetCode,
+  confirmPasswordReset
 };

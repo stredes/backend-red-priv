@@ -88,4 +88,56 @@ async function refresh(req, res) {
   }
 }
 
-module.exports = { register, login, me, verifyEmail, resetPassword, refresh };
+async function requestPasswordReset(req, res) {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email es requerido' });
+    }
+    const result = await authService.requestPasswordReset(email);
+    return res.json(result);
+  } catch (err) {
+    return res.status(500).json({ error: 'Error al solicitar código de recuperación' });
+  }
+}
+
+async function verifyResetCode(req, res) {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Email y código son requeridos' });
+    }
+    const result = await authService.verifyResetCode(email, code);
+    return res.json(result);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+}
+
+async function confirmPasswordReset(req, res) {
+  try {
+    const { email, code, newPassword } = req.body;
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ error: 'Todos los campos son requeridos' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+    }
+    const result = await authService.confirmPasswordReset(email, code, newPassword);
+    return res.json(result);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+}
+
+module.exports = { 
+  register, 
+  login, 
+  me, 
+  verifyEmail, 
+  resetPassword, 
+  refresh,
+  requestPasswordReset,
+  verifyResetCode,
+  confirmPasswordReset
+};
