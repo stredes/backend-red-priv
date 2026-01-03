@@ -1,13 +1,16 @@
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
-const { nanoid } = require('nanoid');
 const { put } = require('@vercel/blob');
 const { createClient } = require('@vercel/edge-config');
 const { bucket } = require('../config/firebase');
 const { EDGE_CONFIG, EDGE_CONFIG_GALLERY_KEY } = require('../config/env');
 
 const edgeClient = EDGE_CONFIG ? createClient(EDGE_CONFIG) : null;
+
+function generateId(size = 10) {
+  return require('crypto').randomBytes(size).toString('base64url').slice(0, size);
+}
 
 async function uploadProductImage(file, { baseUrl } = {}) {
   const filename = `${uuidv4()}-${file.originalname}`;
@@ -58,13 +61,13 @@ async function uploadGalleryImage(file) {
     throw new Error('Missing image');
   }
   const safeName = file.originalname?.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9._-]/g, '') || 'image';
-  const filename = `gallery/${nanoid(10)}-${safeName}`;
+  const filename = `gallery/${generateId(10)}-${safeName}`;
   const blob = await put(filename, file.buffer, {
     access: 'public',
     contentType: file.mimetype,
   });
   const item = {
-    id: nanoid(10),
+    id: generateId(10),
     url: blob.url,
     filename: blob.pathname || filename,
     createdAt: new Date().toISOString(),
