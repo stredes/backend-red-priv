@@ -1,7 +1,10 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { nanoid } = require('nanoid');
 const { JWT_SECRET, REFRESH_JWT_SECRET, ACCESS_TOKEN_TTL, REFRESH_TOKEN_TTL } = require('../config/env');
+
+function generateId(size = 21) {
+  return crypto.randomBytes(size).toString('base64url').slice(0, size);
+}
 
 function signAccessToken(user) {
   return jwt.sign(
@@ -16,7 +19,7 @@ function signAccessToken(user) {
 }
 
 function signRefreshToken(user) {
-  const jti = nanoid();
+  const jti = generateId();
   const token = jwt.sign(
     {
       sub: user.email,

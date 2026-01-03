@@ -4,13 +4,21 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "upload:gallery": "node scripts/upload-public-gallery.js"
   },
-  "keywords": ["express", "upload", "images", "backend"],
+  "keywords": [
+    "express",
+    "upload",
+    "images",
+    "backend"
+  ],
   "author": "Image Upload Backend",
   "license": "MIT",
   "description": "Backend para subida y gestión de imágenes con Express.js",
   "dependencies": {
+    "@vercel/blob": "^2.0.0",
+    "@vercel/edge-config": "^1.4.3",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",

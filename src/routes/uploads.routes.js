@@ -17,5 +17,7 @@ const upload = multer({
 });
 
 router.post('/products', authenticateToken, requireRole('admin', 'root', 'provider'), upload.single('image'), uploadsController.uploadProduct);
+router.get('/gallery', uploadsController.listGallery);
+router.post('/gallery', authenticateToken, requireRole('admin', 'root', 'provider'), upload.single('image'), uploadsController.uploadGallery);
 
 module.exports = router;

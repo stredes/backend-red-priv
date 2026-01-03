@@ -19,6 +19,10 @@ const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || '';
 const FIREBASE_CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL || '';
 const FIREBASE_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY || '';
 
+const EDGE_CONFIG = process.env.EDGE_CONFIG || '';
+const EDGE_CONFIG_GALLERY_KEY = process.env.EDGE_CONFIG_GALLERY_KEY || 'gallery';
+const BLOB_READ_WRITE_TOKEN = process.env.BLOB_READ_WRITE_TOKEN || '';
+
 const ROOT_EMAIL = (process.env.ROOT_EMAIL || 'root').trim().toLowerCase();
 const ROOT_PASSWORD = process.env.ROOT_PASSWORD || '';
 
@@ -40,6 +44,9 @@ module.exports = {
   FIREBASE_PROJECT_ID,
   FIREBASE_CLIENT_EMAIL,
   FIREBASE_PRIVATE_KEY,
+  EDGE_CONFIG,
+  EDGE_CONFIG_GALLERY_KEY,
+  BLOB_READ_WRITE_TOKEN,
   ROOT_EMAIL,
   ROOT_PASSWORD
 };
