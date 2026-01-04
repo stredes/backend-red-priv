@@ -18,14 +18,26 @@ const authService = require('./services/auth.service');
 
 const app = express();
 
-const allowedOrigins = CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean);
-app.use(cors({
+const allowedOrigins = CORS_ORIGINS.split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowedOriginPatterns = allowedOrigins
+  .filter((origin) => origin.includes('*'))
+  .map((origin) => new RegExp(`^${origin.replace(/\./g, '\\.').replace(/\*/g, '.*')}$`));
+const allowedOriginExact = allowedOrigins.filter((origin) => !origin.includes('*'));
+const corsOptions = {
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.length === 0) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (allowedOriginExact.includes(origin)) return callback(null, true);
+    if (allowedOriginPatterns.some((pattern) => pattern.test(origin))) return callback(null, true);
     return callback(new Error('Not allowed by CORS'));
-  }
-}));
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use('/uploads', express.static(path.resolve(__dirname, '..', 'uploads')));
 
