@@ -17,12 +17,18 @@ async function getInbox(req, res) {
 }
 
 async function getThread(req, res) {
-  if (!req.query.with) {
+  if (!req.query.with && !req.query.chatId) {
     return res.status(400).json({ error: 'Missing with parameter' });
   }
   const page = Number(req.query.page || 1);
   const pageSize = Number(req.query.pageSize || 50);
-  const messages = await messagesService.listThread(req.user.email, req.query.with, page, pageSize);
+  const messages = await messagesService.listThread(
+    req.user.email,
+    req.query.with,
+    req.query.chatId,
+    page,
+    pageSize
+  );
   return res.json({ messages });
 }
 

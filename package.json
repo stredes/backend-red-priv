@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "upload:gallery": "node scripts/upload-public-gallery.js"
+    "upload:gallery": "node scripts/upload-public-gallery.js",
+    "dev:all": "concurrently -n backend,frontend -c cyan,magenta \"npm run dev\" \"npm start --prefix ../red-priv\""
   },
   "keywords": [
     "express",
@@ -30,5 +31,8 @@
     "multer": "^1.4.5-lts.1",
     "nanoid": "^5.0.7",
     "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
   }
 }

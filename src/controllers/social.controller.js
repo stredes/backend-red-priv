@@ -8,6 +8,15 @@ async function createRequest(req, res) {
     if (err.message === 'Missing receiverEmail') {
       return res.status(400).json({ error: err.message });
     }
+    if (err.message === 'Invalid receiverEmail') {
+      return res.status(400).json({ error: err.message });
+    }
+    if (err.message === 'Already friends') {
+      return res.status(409).json({ error: err.message });
+    }
+    if (err.message === 'Request already pending') {
+      return res.status(409).json({ error: err.message });
+    }
     return res.status(500).json({ error: 'Request failed' });
   }
 }
@@ -33,6 +42,9 @@ async function acceptRequest(req, res) {
     if (err.message === 'Forbidden') {
       return res.status(403).json({ error: err.message });
     }
+    if (err.message === 'Request not pending') {
+      return res.status(409).json({ error: err.message });
+    }
     return res.status(500).json({ error: 'Accept failed' });
   }
 }
@@ -47,6 +59,9 @@ async function rejectRequest(req, res) {
     }
     if (err.message === 'Forbidden') {
       return res.status(403).json({ error: err.message });
+    }
+    if (err.message === 'Request not pending') {
+      return res.status(409).json({ error: err.message });
     }
     return res.status(500).json({ error: 'Reject failed' });
   }

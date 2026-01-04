@@ -7,8 +7,24 @@ async function createRequest(sender, receiverEmail) {
     throw new Error('Missing receiverEmail');
   }
 
+  const normalizedSender = normalizeEmail(sender.email);
+  if (!normalizedSender || normalizedSender === normalizedReceiver) {
+    throw new Error('Invalid receiverEmail');
+  }
+
+  const friends = await socialRepo.listFriends(normalizedSender);
+  const alreadyFriends = friends.some((item) => item.friendEmail === normalizedReceiver);
+  if (alreadyFriends) {
+    throw new Error('Already friends');
+  }
+
+  const existingPending = await socialRepo.getPendingRequestBetween(normalizedSender, normalizedReceiver);
+  if (existingPending) {
+    throw new Error('Request already pending');
+  }
+
   const request = {
-    senderEmail: sender.email,
+    senderEmail: normalizedSender,
     senderName: sender.name || '',
     receiverEmail: normalizedReceiver,
     status: 'PENDIENTE',
@@ -19,11 +35,97 @@ async function createRequest(sender, receiverEmail) {
 }
 
 async function listIncoming(email) {
-  return socialRepo.listIncomingRequests(email);
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) {
+    return [];
+  }
+
+  const rawEmail = (email || '').trim();
+  const requestPromises = [socialRepo.listIncomingRequests(normalizedEmail)];
+  const friendPromises = [socialRepo.listFriends(normalizedEmail)];
+  if (rawEmail && rawEmail !== normalizedEmail) {
+    requestPromises.push(socialRepo.listIncomingRequests(rawEmail));
+    friendPromises.push(socialRepo.listFriends(rawEmail));
+  }
+
+  const [requestResults, friendResults] = await Promise.all([
+    Promise.all(requestPromises),
+    Promise.all(friendPromises)
+  ]);
+
+  const requests = requestResults.flat();
+  const friends = friendResults.flat();
+
+  if (!friends.length) {
+    return requests;
+  }
+
+  const friendSet = new Set(
+    friends
+      .map((item) => normalizeEmail(item.friendEmail))
+      .filter(Boolean)
+  );
+
+  const filtered = requests.filter((request) => {
+    const sender = normalizeEmail(request.senderEmail);
+    return sender && !friendSet.has(sender);
+  });
+
+  const seen = new Set();
+  return filtered.filter((item) => {
+    if (seen.has(item.id)) {
+      return false;
+    }
+    seen.add(item.id);
+    return true;
+  });
 }
 
 async function listOutgoing(email) {
-  return socialRepo.listOutgoingRequests(email);
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) {
+    return [];
+  }
+
+  const rawEmail = (email || '').trim();
+  const requestPromises = [socialRepo.listOutgoingRequests(normalizedEmail)];
+  const friendPromises = [socialRepo.listFriends(normalizedEmail)];
+  if (rawEmail && rawEmail !== normalizedEmail) {
+    requestPromises.push(socialRepo.listOutgoingRequests(rawEmail));
+    friendPromises.push(socialRepo.listFriends(rawEmail));
+  }
+
+  const [requestResults, friendResults] = await Promise.all([
+    Promise.all(requestPromises),
+    Promise.all(friendPromises)
+  ]);
+
+  const requests = requestResults.flat();
+  const friends = friendResults.flat();
+
+  if (!friends.length) {
+    return requests;
+  }
+
+  const friendSet = new Set(
+    friends
+      .map((item) => normalizeEmail(item.friendEmail))
+      .filter(Boolean)
+  );
+
+  const filtered = requests.filter((request) => {
+    const receiver = normalizeEmail(request.receiverEmail);
+    return receiver && !friendSet.has(receiver);
+  });
+
+  const seen = new Set();
+  return filtered.filter((item) => {
+    if (seen.has(item.id)) {
+      return false;
+    }
+    seen.add(item.id);
+    return true;
+  });
 }
 
 async function acceptRequest(id, receiverEmail) {
@@ -32,8 +134,13 @@ async function acceptRequest(id, receiverEmail) {
     throw new Error('Request not found');
   }
 
-  if (request.receiverEmail !== receiverEmail) {
+  const normalizedReceiver = normalizeEmail(receiverEmail);
+  if (request.receiverEmail !== normalizedReceiver) {
     throw new Error('Forbidden');
+  }
+
+  if (request.status !== 'PENDIENTE') {
+    throw new Error('Request not pending');
   }
 
   await socialRepo.updateRequest(id, { status: 'ACEPTADA' });
@@ -41,6 +148,7 @@ async function acceptRequest(id, receiverEmail) {
     { userEmail: request.senderEmail, friendEmail: request.receiverEmail },
     { userEmail: request.receiverEmail, friendEmail: request.senderEmail }
   ]);
+  await socialRepo.markRequestsBetweenAccepted(request.senderEmail, request.receiverEmail);
 
   return { success: true };
 }
@@ -51,8 +159,13 @@ async function rejectRequest(id, receiverEmail) {
     throw new Error('Request not found');
   }
 
-  if (request.receiverEmail !== receiverEmail) {
+  const normalizedReceiver = normalizeEmail(receiverEmail);
+  if (request.receiverEmail !== normalizedReceiver) {
     throw new Error('Forbidden');
+  }
+
+  if (request.status !== 'PENDIENTE') {
+    throw new Error('Request not pending');
   }
 
   await socialRepo.updateRequest(id, { status: 'RECHAZADA' });
@@ -60,7 +173,31 @@ async function rejectRequest(id, receiverEmail) {
 }
 
 async function listFriends(email) {
-  return socialRepo.listFriends(email);
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) {
+    return [];
+  }
+
+  const rawEmail = (email || '').trim();
+  if (rawEmail && rawEmail !== normalizedEmail) {
+    const [normalizedFriends, rawFriends] = await Promise.all([
+      socialRepo.listFriends(normalizedEmail),
+      socialRepo.listFriends(rawEmail)
+    ]);
+
+    const merged = [...normalizedFriends, ...rawFriends];
+    const seen = new Set();
+    return merged.filter((item) => {
+      const key = `${item.userEmail || ''}__${item.friendEmail || ''}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  }
+
+  return socialRepo.listFriends(normalizedEmail);
 }
 
 module.exports = {
