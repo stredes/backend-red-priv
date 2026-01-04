@@ -10,7 +10,12 @@ const {
 
 function loadServiceAccount() {
   if (FIREBASE_SERVICE_ACCOUNT_JSON) {
-    return JSON.parse(FIREBASE_SERVICE_ACCOUNT_JSON);
+    try {
+      const normalized = FIREBASE_SERVICE_ACCOUNT_JSON.replace(/\\n/g, '\n');
+      return JSON.parse(normalized);
+    } catch (err) {
+      throw new Error(`Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON: ${err.message}`);
+    }
   }
 
   const credentialsPath =
