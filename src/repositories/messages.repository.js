@@ -44,15 +44,14 @@ async function findChatByParticipants(userEmail, otherEmail) {
 }
 
 async function listInboxFromChatsHistory(email, page = 1, pageSize = 20) {
-  const offset = (page - 1) * pageSize;
   const snapshot = await db.collection('chats_history')
     .where('participants', 'array-contains', email)
-    .orderBy('lastMessageTimestamp', 'desc')
-    .offset(offset)
-    .limit(pageSize)
     .get();
 
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  const all = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  all.sort((a, b) => (b.lastMessageTimestamp || 0) - (a.lastMessageTimestamp || 0));
+  const offset = (page - 1) * pageSize;
+  return all.slice(offset, offset + pageSize);
 }
 
 async function listThreadFromChatsHistory(chatId, receiverEmail, page = 1, pageSize = 50) {

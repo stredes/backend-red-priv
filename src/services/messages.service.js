@@ -2,8 +2,7 @@ const messagesRepo = require('../repositories/messages.repository');
 const { normalizeEmail } = require('../utils/normalize');
 
 function getChatId(emailA, emailB) {
-  const pair = [emailA, emailB].sort();
-  return `${pair[0]}__${pair[1]}`;
+  return emailA < emailB ? `${emailA}_${emailB}` : `${emailB}_${emailA}`;
 }
 
 async function sendMessage(sender, payload) {
@@ -24,7 +23,8 @@ async function sendMessage(sender, payload) {
     content: payload.content,
     type: payload.type || 'CHAT',
     timestamp: Date.now(),
-    read: false
+    read: false,
+    participants: [senderEmail, receiverEmail]
   };
 
   const existingChat = await messagesRepo.findChatByParticipants(senderEmail, receiverEmail);
@@ -33,10 +33,12 @@ async function sendMessage(sender, payload) {
   const chatPayload = {
     participants: [senderEmail, receiverEmail],
     lastMessage: message.content,
-    lastMessageTimestamp: message.timestamp
+    lastMessageTimestamp: message.timestamp,
+    lastSender: senderEmail
   };
 
-  return messagesRepo.createChatMessage(chatId, chatPayload, message);
+  const messagePayload = { ...message, chatId };
+  return messagesRepo.createChatMessage(chatId, chatPayload, messagePayload);
 }
 
 async function listInbox(email, page, pageSize) {

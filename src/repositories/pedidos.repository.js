@@ -18,9 +18,18 @@ async function listByComprador(email, { page = 1, pageSize = 20, estado, desde, 
   if (estado) query = query.where('estado', '==', estado);
   if (desde) query = query.where('fechaPedido', '>=', desde);
   if (hasta) query = query.where('fechaPedido', '<=', hasta);
+
+  if (desde || hasta) {
+    const offset = (page - 1) * pageSize;
+    const snapshot = await query.orderBy('fechaPedido', 'desc').offset(offset).limit(pageSize).get();
+    return snapshot.docs.map((doc) => doc.data());
+  }
+
+  const snapshot = await query.get();
+  const all = snapshot.docs.map((doc) => doc.data());
+  all.sort((a, b) => (b.fechaPedido || b.ultimaActualizacion || 0) - (a.fechaPedido || a.ultimaActualizacion || 0));
   const offset = (page - 1) * pageSize;
-  const snapshot = await query.orderBy('fechaPedido', 'desc').offset(offset).limit(pageSize).get();
-  return snapshot.docs.map((doc) => doc.data());
+  return all.slice(offset, offset + pageSize);
 }
 
 async function listByProveedor(email, { page = 1, pageSize = 20, estado, desde, hasta } = {}) {
@@ -28,9 +37,18 @@ async function listByProveedor(email, { page = 1, pageSize = 20, estado, desde, 
   if (estado) query = query.where('estado', '==', estado);
   if (desde) query = query.where('fechaPedido', '>=', desde);
   if (hasta) query = query.where('fechaPedido', '<=', hasta);
+
+  if (desde || hasta) {
+    const offset = (page - 1) * pageSize;
+    const snapshot = await query.orderBy('fechaPedido', 'desc').offset(offset).limit(pageSize).get();
+    return snapshot.docs.map((doc) => doc.data());
+  }
+
+  const snapshot = await query.get();
+  const all = snapshot.docs.map((doc) => doc.data());
+  all.sort((a, b) => (b.fechaPedido || b.ultimaActualizacion || 0) - (a.fechaPedido || a.ultimaActualizacion || 0));
   const offset = (page - 1) * pageSize;
-  const snapshot = await query.orderBy('fechaPedido', 'desc').offset(offset).limit(pageSize).get();
-  return snapshot.docs.map((doc) => doc.data());
+  return all.slice(offset, offset + pageSize);
 }
 
 async function listByProveedorAndEstado(email, estado, options = {}) {

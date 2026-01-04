@@ -21,7 +21,11 @@ async function register(req, res) {
 
 async function login(req, res) {
   try {
-    const { email, password } = req.body;
+    const { email, password, firebaseIdToken } = req.body;
+    if (firebaseIdToken) {
+      const result = await authService.loginWithFirebaseToken(firebaseIdToken);
+      return res.json(result);
+    }
     if (!email || !password) {
       return res.status(400).json({ error: 'Missing credentials' });
     }
@@ -29,6 +33,9 @@ async function login(req, res) {
     return res.json(result);
   } catch (err) {
     if (err.message === 'Invalid credentials') {
+      return res.status(401).json({ error: err.message });
+    }
+    if (err.message === 'Missing firebase token' || err.message === 'Invalid firebase token') {
       return res.status(401).json({ error: err.message });
     }
     return res.status(500).json({ error: 'Login failed' });

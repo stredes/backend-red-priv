@@ -83,7 +83,31 @@ async function login({ email, password }) {
     throw new Error('Invalid credentials');
   }
 
-  const matches = await bcrypt.compare(password, user.passwordHash || '');
+  let matches = false;
+  if (user.passwordHash) {
+    const isBcrypt = typeof user.passwordHash === 'string' && user.passwordHash.startsWith('$2');
+    if (isBcrypt) {
+      matches = await bcrypt.compare(password, user.passwordHash);
+    } else {
+      matches = user.passwordHash === password;
+      if (matches) {
+        const hash = await bcrypt.hash(password, 10);
+        await usersRepo.updateUser(normalizedEmail, {
+          passwordHash: hash
+        });
+      }
+    }
+  } else if (user.password) {
+    matches = user.password === password;
+    if (matches) {
+      const hash = await bcrypt.hash(password, 10);
+      await usersRepo.updateUser(normalizedEmail, {
+        passwordHash: hash,
+        password: admin.firestore.FieldValue.delete()
+      });
+    }
+  }
+
   if (!matches) {
     throw new Error('Invalid credentials');
   }
@@ -95,6 +119,41 @@ async function login({ email, password }) {
       name: user.name,
       email: user.email,
       role: user.role,
+      rut: user.rut || ''
+    }
+  };
+}
+
+async function loginWithFirebaseToken(firebaseIdToken) {
+  if (!firebaseIdToken) {
+    throw new Error('Missing firebase token');
+  }
+
+  const decoded = await admin.auth().verifyIdToken(firebaseIdToken);
+  const normalizedEmail = normalizeEmail(decoded.email);
+  if (!normalizedEmail) {
+    throw new Error('Invalid firebase token');
+  }
+
+  let user = await usersRepo.getUserByEmail(normalizedEmail);
+  if (!user) {
+    user = {
+      name: decoded.name || decoded.displayName || '',
+      email: normalizedEmail,
+      role: 'user',
+      rut: '',
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    await usersRepo.createUser(normalizedEmail, user);
+  }
+
+  const tokens = await issueTokens(user);
+  return {
+    ...tokens,
+    user: {
+      name: user.name || '',
+      email: user.email,
+      role: user.role || 'user',
       rut: user.rut || ''
     }
   };
@@ -256,6 +315,7 @@ module.exports = {
   ensureRootUser,
   register,
   login,
+  loginWithFirebaseToken,
   me,
   verifyEmail,
   resetPassword,
