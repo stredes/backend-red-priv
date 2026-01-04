@@ -3,3 +3,4 @@ node_modules
 uploads
 .env
 .env.*
+huertomobil-17e85-firebase-adminsdk-*.json
