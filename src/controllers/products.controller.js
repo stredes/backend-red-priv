@@ -21,15 +21,23 @@ async function getProduct(req, res) {
 }
 
 async function createProduct(req, res) {
-  const { nombre, precioCLP, unidad } = req.body;
-  if (!nombre || precioCLP == null || !unidad) {
+  const { nombre, precioCLP, precio, unidad } = req.body;
+  const resolvedPrecio = precioCLP ?? precio;
+  if (!nombre || resolvedPrecio == null || !unidad) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
   try {
-    const producto = await productsService.createProduct(req.body, req.user);
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const producto = await productsService.createProduct(
+      { ...req.body, file: req.file, baseUrl },
+      req.user
+    );
     return res.status(201).json({ producto });
   } catch (err) {
+    if (err.message === 'Invalid imageUrl') {
+      return res.status(400).json({ error: err.message });
+    }
     return res.status(500).json({ error: 'Create product failed' });
   }
 }

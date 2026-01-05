@@ -4,7 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const { put } = require('@vercel/blob');
 const { createClient } = require('@vercel/edge-config');
 const { bucket } = require('../config/firebase');
-const { EDGE_CONFIG, EDGE_CONFIG_GALLERY_KEY } = require('../config/env');
+const { BLOB_READ_WRITE_TOKEN, EDGE_CONFIG, EDGE_CONFIG_GALLERY_KEY } = require('../config/env');
 
 const edgeClient = EDGE_CONFIG ? createClient(EDGE_CONFIG) : null;
 
@@ -13,10 +13,24 @@ function generateId(size = 10) {
 }
 
 async function uploadProductImage(file, { baseUrl } = {}) {
-  const filename = `${uuidv4()}-${file.originalname}`;
+  if (!file?.buffer) {
+    throw new Error('Missing image');
+  }
+  const safeName = file.originalname?.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9._-]/g, '') || 'image';
+  const ext = path.extname(safeName);
+  const baseName = ext ? safeName.slice(0, -ext.length) : safeName;
+  const filename = `products/${baseName}-${Date.now()}${ext || ''}`;
+
+  if (BLOB_READ_WRITE_TOKEN) {
+    const blob = await put(filename, file.buffer, {
+      access: 'public',
+      contentType: file.mimetype,
+    });
+    return { url: blob.url, filename: blob.pathname || filename };
+  }
 
   if (bucket) {
-    const storagePath = `product_images/${filename}`;
+    const storagePath = `product_images/${uuidv4()}-${safeName}`;
     const storageFile = bucket.file(storagePath);
 
     await storageFile.save(file.buffer, {

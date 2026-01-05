@@ -4,6 +4,7 @@ const { normalizeEmail } = require('../utils/normalize');
 const { BLOB_PUBLIC_BASE_URL, IMAGE_CHECK_TTL_MS } = require('../config/env');
 const https = require('https');
 const http = require('http');
+const uploadsService = require('./uploads.service');
 
 const imageValidationCache = new Map();
 
@@ -88,19 +89,35 @@ async function createProduct(payload, requester) {
     ? normalizeEmail(payload.providerEmail || requester.email)
     : requester.email;
 
+  let imageUrl = (payload.imageUrl || payload.imagenUri || payload.img || '').trim();
+  if (payload.file) {
+    const upload = await uploadsService.uploadProductImage(payload.file, payload.baseUrl ? { baseUrl: payload.baseUrl } : {});
+    imageUrl = upload.url;
+  } else if (imageUrl) {
+    imageUrl = await validateImageUrl(imageUrl);
+    if (!imageUrl) {
+      throw new Error('Invalid imageUrl');
+    }
+  }
+
+  const precioValue = payload.precioCLP ?? payload.precio;
   const id = uuidv4();
   const data = {
+    code: (payload.code || '').trim(),
     nombre: payload.nombre.trim(),
-    precioCLP: Number(payload.precioCLP),
+    precioCLP: Number(precioValue),
     unidad: payload.unidad.trim(),
     descripcion: (payload.descripcion || '').trim(),
+    categoria: (payload.categoria || '').trim(),
+    origen: (payload.origen || '').trim(),
+    stock: payload.stock != null ? Number(payload.stock) : null,
     imagenRes: 0,
-    imagenUri: payload.imagenUri || '',
+    imagenUri: imageUrl || '',
     providerEmail: ownerEmail
   };
 
   await productsRepo.createProduct(id, data);
-  return { id, ...data };
+  return attachValidatedImage({ id, ...data });
 }
 
 async function updateProduct(id, payload, requester) {
@@ -114,11 +131,18 @@ async function updateProduct(id, payload, requester) {
   }
 
   const updates = {};
-  ['nombre', 'precioCLP', 'unidad', 'descripcion', 'imagenUri'].forEach((key) => {
+  if (payload.precioCLP != null || payload.precio != null) {
+    updates.precioCLP = Number(payload.precioCLP ?? payload.precio);
+  }
+  ['nombre', 'unidad', 'descripcion', 'categoria', 'origen', 'code', 'stock'].forEach((key) => {
     if (payload[key] != null) {
-      updates[key] = key === 'precioCLP' ? Number(payload[key]) : payload[key];
+      updates[key] = key === 'stock' ? Number(payload[key]) : payload[key];
     }
   });
+  const imageCandidate = payload.imagenUri || payload.imageUrl || payload.img;
+  if (imageCandidate != null) {
+    updates.imagenUri = imageCandidate;
+  }
 
   await productsRepo.updateProduct(id, updates);
   return { success: true };
