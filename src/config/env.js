@@ -22,6 +22,10 @@ const FIREBASE_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY || '';
 const EDGE_CONFIG = process.env.EDGE_CONFIG || '';
 const EDGE_CONFIG_GALLERY_KEY = process.env.EDGE_CONFIG_GALLERY_KEY || 'gallery';
 const BLOB_READ_WRITE_TOKEN = process.env.BLOB_READ_WRITE_TOKEN || '';
+const BLOB_PUBLIC_BASE_URL = process.env.BLOB_PUBLIC_BASE_URL
+  || process.env.REACT_APP_BLOB_PUBLIC_BASE_URL
+  || '';
+const IMAGE_CHECK_TTL_MS = Number(process.env.IMAGE_CHECK_TTL_MS || 300000);
 
 const ROOT_EMAIL = (process.env.ROOT_EMAIL || 'root').trim().toLowerCase();
 const ROOT_PASSWORD = process.env.ROOT_PASSWORD || '';
@@ -47,6 +51,8 @@ module.exports = {
   EDGE_CONFIG,
   EDGE_CONFIG_GALLERY_KEY,
   BLOB_READ_WRITE_TOKEN,
+  BLOB_PUBLIC_BASE_URL,
+  IMAGE_CHECK_TTL_MS,
   ROOT_EMAIL,
   ROOT_PASSWORD
 };

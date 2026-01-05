@@ -1,14 +1,78 @@
 const { v4: uuidv4 } = require('uuid');
 const productsRepo = require('../repositories/products.repository');
 const { normalizeEmail } = require('../utils/normalize');
+const { BLOB_PUBLIC_BASE_URL, IMAGE_CHECK_TTL_MS } = require('../config/env');
+const https = require('https');
+const http = require('http');
+
+const imageValidationCache = new Map();
+
+function resolveImageCandidate(product) {
+  return product.imagenUri || product.img || '';
+}
+
+function isBlobUrl(url) {
+  if (!BLOB_PUBLIC_BASE_URL) return true;
+  return url.startsWith(BLOB_PUBLIC_BASE_URL);
+}
+
+function headRequest(url) {
+  return new Promise((resolve) => {
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch (err) {
+      resolve(false);
+      return;
+    }
+    const client = parsed.protocol === 'https:' ? https : http;
+    const req = client.request(
+      parsed,
+      { method: 'HEAD', timeout: 4000 },
+      (res) => {
+        res.resume();
+        resolve(res.statusCode >= 200 && res.statusCode < 400);
+      }
+    );
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(false);
+    });
+    req.end();
+  });
+}
+
+async function validateImageUrl(url) {
+  if (!url) return '';
+  if (!isBlobUrl(url)) return '';
+  const cached = imageValidationCache.get(url);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.ok ? url : '';
+  }
+  const ok = await headRequest(url);
+  imageValidationCache.set(url, { ok, expiresAt: Date.now() + IMAGE_CHECK_TTL_MS });
+  return ok ? url : '';
+}
+
+async function attachValidatedImage(product) {
+  const candidate = resolveImageCandidate(product);
+  const resolved = await validateImageUrl(candidate);
+  return {
+    ...product,
+    imagenUri: resolved || product.imagenUri || '',
+    img: resolved || product.img || ''
+  };
+}
 
 async function listProducts({ providerEmail, page, pageSize }) {
   const normalized = normalizeEmail(providerEmail);
-  return productsRepo.listProducts({
+  const products = await productsRepo.listProducts({
     providerEmail: normalized || null,
     page,
     pageSize
   });
+  return Promise.all(products.map(attachValidatedImage));
 }
 
 async function getProduct(id) {
@@ -16,7 +80,7 @@ async function getProduct(id) {
   if (!product) {
     throw new Error('Product not found');
   }
-  return product;
+  return attachValidatedImage(product);
 }
 
 async function createProduct(payload, requester) {
